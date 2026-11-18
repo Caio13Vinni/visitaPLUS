@@ -1,145 +1,139 @@
-<div align="center">
+# VISITA+
 
-<img src="assets/images/logo.png" alt="Logo do VISITA+" width="120" />
+Sistema de gestão de visitas domiciliares para unidades CRAS/CREAS.
 
-<h1>VISITA+</h1>
-
-**Sistema de gestão de visitas domiciliares para unidades CRAS/CREAS.**
-
-App mobile em **Flutter** para coordenadores e técnicos, e backend em **Rust** com **Clean Architecture**, **operação offline** com sincronização posterior e **auditoria completa** de ações.
-
-**[Backend](https://github.com/Caio13Vinni/visita-plus-backend)** · **App (este repositório)** · **Português (Brasil)**
-
-[![Flutter](https://img.shields.io/badge/Flutter-02569B?logo=flutter&logoColor=white)](https://flutter.dev)
-[![Rust](https://img.shields.io/badge/Rust-000000?logo=rust&logoColor=white)](https://www.rust-lang.org)
-[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-4169E1?logo=postgresql&logoColor=white)](https://www.postgresql.org)
-[![SQLite](https://img.shields.io/badge/SQLite-003B57?logo=sqlite&logoColor=white)](https://www.sqlite.org)
-[![Clean Architecture](https://img.shields.io/badge/Clean_Architecture-142A40)](https://blog.cleancoder.com/uncle-bob/2012/08/13/the-clean-architecture.html)
-</div>
+Este repositório é o ponto central do projeto, contendo o backend e o frontend como submódulos.
 
 ---
 
-## Por quê
+## Visão Geral
 
-Visitas domiciliares são o coração do trabalho das equipes técnicas do **SUAS** (Sistema Único de Assistência Social). Cada família acompanhada gera um volume enorme de registros: fichas de visita, observações sobre o domicílio, materiais entregues, encaminhamentos, solicitações de retorno.
+O VISITA+ é um sistema completo para gestão de visitas domiciliares no contexto do SUAS (Sistema Único de Assistência Social). O projeto é dividido em duas partes principais: uma API robusta desenvolvida em Rust e um aplicativo mobile multiplataforma desenvolvido em Flutter.
 
-Hoje, boa parte desse processo ainda é feita em papel ou em planilhas improvisadas. O resultado é previsível:
+O sistema atende dois perfis de usuários: coordenadores, que gerenciam equipes e visualizam agendamentos, e técnicos, que realizam visitas em campo e registram informações sobre as famílias acompanhadas.
 
-- **Registros perdidos ou incompletos**: papel danifica, planilha se corrompe
-- **Nenhuma rastreabilidade**: quem alterou o quê, quando e por quê?
-- **Regras de negócio na cabeça do técnico**: cada unidade faz do seu jeito
-- **Agenda sem visibilidade**: o coordenador não enxerga o que a equipe tem para hoje
-- **Impossibilidade de trabalho offline**: o campo muitas vezes não tem sinal
+---
 
-O VISITA+ resolve isso em duas frentes: um **app** com telas pensadas para cada perfil, e um **backend** que codifica as regras de negócio no domínio, audita toda ação e suporta sincronização offline.
-
-## Visão geral do sistema
+## Estrutura do Repositório
 
 ```
-┌─────────────────────────┐        ┌──────────────────────────────┐
-│  App mobile (Flutter)   │  HTTP  │  Backend (Rust · axum)       │
-│  Coordenador · Técnico  │ ◄────► │  Clean Architecture          │
-│  Este repositório       │  REST  │  RN01-RN25 · UC01-UC12       │
-└─────────────────────────┘        └───────────────┬──────────────┘
+visitaPLUS/
+├── backend/     # API REST em Rust (submódulo)
+├── frontend/    # App mobile em Flutter (submódulo)
+└── README.md
+```
+
+---
+
+## Arquitetura do Sistema
+
+### Visão Macro
+
+```
+┌─────────────────────────┐         ┌──────────────────────────────┐
+│  App Mobile (Flutter)   │  HTTP   │  Backend (Rust · axum)       │
+│  Coordenador · Técnico  │ ◄─────► │  Clean Architecture          │
+│  Operacao offline       │  REST   │  RN01-RN25 · UC01-UC12       │
+└─────────────────────────┘         └──────────────┬───────────────┘
                                                    │
                                     ┌──────────────┴──────────────┐
                                     │ PostgreSQL (central online)  │
-                                    │ SQLite (simula banco mobile) │
-                                    └──────────────────────────────┘
+                                    │ SQLite (banco local mobile)  │
+                                    └─────────────────────────────┘
 ```
 
-| Componente | Tecnologia | Repositório |
-|---|---|---|
-| **App mobile** | Flutter, Material 3 | este repositório |
-| **Backend / API** | Rust, axum, sqlx | [visita-plus-backend](https://github.com/Caio13Vinni/visita-plus-backend) |
+### Comunicação
 
-> **Estado da integração:** hoje o app roda com dados fictícios e login simulado, e ainda não consome a API do backend. A integração está no [roadmap](#roadmap).
+O frontend se comunica com o backend através de uma API REST. As requisições seguem o padrão HTTP com JSON, e as respostas utilizam um formato padronizado:
 
-## Características
+```json
+{
+  "sucesso": true,
+  "dados": { },
+  "erro": null
+}
+```
 
-### App mobile
+O sistema foi projetado para suportar operação offline. Quando não há conectividade, o app armazena dados localmente e sincroniza com o backend quando a conexão é restabelecida.
 
-- **Dois perfis de acesso.** Coordenador e técnico entram pelo mesmo login e caem em telas iniciais diferentes.
-- **Agenda.** Coordenador vê a agenda da equipe; técnico vê a própria agenda e a próxima visita atribuída.
-- **Agendamento de visitas.** Família, data, horário de início e término, local (unidade do CRAS ou outro) e tipo (domiciliar ou na unidade), com validação de horário.
-- **Registro guiado da visita.** Observações, condições do domicílio (adequadas, parcialmente adequadas, inadequadas), participação da família (ativa, parcial, baixa) e materiais e orientações entregues.
-- **Encaminhamentos.** Tipo (assistência social, CRAS, CREAS, Conselho Tutelar, outro), motivo, prioridade, responsável e data sugerida, ou finalização sem encaminhamento.
-- **Famílias e histórico.** Busca, detalhes da família e histórico de visitas com filtros por período e tipo.
-- **Gestão da equipe.** Lista de profissionais com busca e cadastro de novo profissional com etapa de revisão.
-- **Recuperação de senha.** Fluxo completo: e-mail, confirmação de envio, nova senha e confirmação.
-- **Multiplataforma.** Suporte gerado para Android, iOS, Web, Windows, macOS e Linux.
+---
 
-### Backend
+## Backend
 
-- **Clean Architecture estrita.** Domínio puro, sem dependências de framework ou banco. Casos de uso orquestram fluxos. Infraestrutura implementa portas.
-- **Duplo banco de dados.** PostgreSQL como banco central online; SQLite simulando o banco local mobile para o mecanismo de sincronização offline.
-- **12 tabelas no MER.** Unidades, usuários, sessões, famílias, visitas, registros, encaminhamentos, notificações e auditoria.
-- **25 regras de negócio** (RN01-RN25) validadas no domínio, não no controller nem no banco.
-- **12 casos de uso** (UC01-UC12): autenticação, famílias, visitas, encaminhamentos, notificações e sincronização.
-- **Migrações automáticas.** SQL em `migrations/` aplicadas na subida da aplicação.
-- **API REST documentada.** Endpoints, payloads, enums e códigos de erro no `API.md` do backend.
-- **Auditoria nativa.** Toda ação sensível gera registro na tabela `auditoria`.
+### Tecnologias
 
-## Arquitetura
+- Rust
+- axum (framework web)
+- sqlx (acesso a banco de dados)
+- PostgreSQL (banco central)
+- SQLite (banco local para simulação mobile)
+- Docker
 
-### Backend
+### Arquitetura
+
+O backend segue rigorosamente os princípios da Clean Architecture, dividindo o sistema em camadas bem definidas:
 
 ```
-┌──────────── interface (axum) ────────────┐
-│  HTTP handlers · DTOs · Estado compartilhado │
-└────────────────┬───────────────────────────┘
+┌─────────────────────────────────────────┐
+│  Interface (axum)                       │
+│  HTTP handlers · DTOs · Estado          │
+└────────────────┬────────────────────────┘
                  │
-┌──────────── casos_de_uso ─────────────────┐
-│  UC01-UC12 · Orquestração de fluxos        │
-└────────────────┬───────────────────────────┘
+┌────────────────▼────────────────────────┐
+│  Casos de Uso                           │
+│  UC01-UC12 · Orquestração de fluxos     │
+└────────────────┬────────────────────────┘
                  │
-┌──────────── dominio ──────────────────────┐
-│  Entidades · Enums · RN01-RN25             │
-│  Sem dependências externas                 │
-└────────────────────────────────────────────┘
-                 ▲
-┌──────────── infraestrutura ───────────────┐
-│  PostgreSQL · SQLite · Repositórios        │
-│  Segurança · Adaptadores técnicos          │
-└────────────────────────────────────────────┘
+┌────────────────▼────────────────────────┐
+│  Domínio                                │
+│  Entidades · Enums · RN01-RN25          │
+│  Sem dependências externas              │
+└────────────────▲────────────────────────┘
+                 │
+┌────────────────┴────────────────────────┐
+│  Infraestrutura                         │
+│  PostgreSQL · SQLite · Repositórios     │
+│  Segurança · Adaptadores                │
+└─────────────────────────────────────────┘
 ```
 
-A regra é simples: **o domínio não conhece axum, sqlx ou tokio**. Isso permite testar regras de negócio sem banco, sem HTTP, sem async.
+### Princípios da Arquitetura
 
-### App
+- O domínio não conhece axum, sqlx ou tokio
+- Regras de negócio vivem exclusivamente no domínio
+- Casos de uso orquestram fluxos sem conter lógica de negócio
+- Infraestrutura implementa portas definidas pelo domínio
+- Permite testar regras de negócio sem banco, sem HTTP, sem async
 
-```
-lib/
-├── main.dart            # Ponto de entrada e tema (Material 3)
-└── screens/             # 26 telas, uma por arquivo (tela_*.dart)
-assets/
-└── images/logo.png      # Logo, também usada como ícone do app
-android/ ios/ web/ windows/ macos/ linux/   # Runners de cada plataforma
-```
+### Regras de Negócio
 
-Fluxos principais:
+O backend implementa 25 regras de negócio (RN01-RN25) organizadas por domínio:
 
-```
-Abertura ─► Login ─┬─► Coordenador ─┬─► Agendar visita
-                   │                ├─► Agenda da equipe
-                   │                ├─► Equipe ─► Novo profissional ─► Revisar dados
-                   │                ├─► Famílias ─► Detalhes da família
-                   │                └─► Perfil
-                   │
-                   └─► Técnico ─────┬─► Agenda ─► Detalhe da visita ─► Informações da visita
-                                    ├─► Observações ─► Encaminhamentos ─► Resultado da visita
-                                    ├─► Histórico de visitas
-                                    └─► Famílias ─► Detalhes da família
+- RN01-RN05: Autenticação e sessões
+- RN06-RN12: Gestão de famílias e visitas
+- RN13-RN18: Encaminhamentos e solicitações de retorno
+- RN19-RN22: Sincronização offline
+- RN23-RN25: Auditoria e notificações
 
-Login ─► Recuperar senha ─► E-mail enviado ─► Nova senha ─► Senha alterada
-```
+### Casos de Uso
 
-## Banco de dados
+Doze casos de uso (UC01-UC12) orquestram os fluxos principais:
 
-| Banco | Papel | Quando usar |
-|---|---|---|
-| **PostgreSQL** | Banco central online | Sempre que há conectividade, com o esquema completo do MER |
-| **SQLite** | Simulação do banco local mobile | Operação offline em campo, sincronização posterior |
+- Autenticação de usuários
+- Gestão de famílias
+- Agendamento e registro de visitas
+- Encaminhamentos entre serviços
+- Notificações
+- Sincronização de dados offline
+
+### Banco de Dados
+
+| Banco       | Papel                        | Quando usar                    |
+|-------------|------------------------------|--------------------------------|
+| PostgreSQL  | Banco central online         | Sempre que há conectividade    |
+| SQLite      | Banco local (simula mobile)  | Operação offline em campo      |
+
+### Modelo de Dados
 
 ```
 unidade ──┬── usuario ──┬── sessao
@@ -154,85 +148,156 @@ unidade ──┬── usuario ──┬── sessao
           └── auditoria
 ```
 
-## Regras de negócio
+---
 
-As **25 regras** (RN01-RN25) vivem em `src/dominio/` no backend:
+## Frontend
 
-- RN01-RN05: Autenticação e sessões
-- RN06-RN12: Gestão de famílias e visitas
-- RN13-RN18: Encaminhamentos e solicitações de retorno
-- RN19-RN22: Sincronização offline
-- RN23-RN25: Auditoria e notificações
+### Tecnologias
 
-## Começando
+- Flutter
+- Dart
+- Material 3
 
-### App (este repositório)
+### Estrutura
 
-**Pré-requisitos:** [Flutter](https://docs.flutter.dev/get-started/install) estável (Dart `^3.13.5`) e um emulador, dispositivo físico ou navegador.
-
-```bash
-git clone https://github.com/Davi-Quirino-Rocha/Visita-.git
-cd Visita-
-
-flutter pub get
-flutter run
+```
+lib/
+├── main.dart            # Ponto de entrada e tema (Material 3)
+└── screens/             # 26 telas, uma por arquivo (tela_*.dart)
+assets/
+└── images/logo.png      # Logo e ícone do app
+android/ ios/ web/ windows/ macos/ linux/   # Runners de cada plataforma
 ```
 
-```bash
-flutter run -d chrome      # Web
-flutter run -d windows     # Windows (ou macos / linux)
-flutter build apk --release
-flutter analyze
+### Perfis de Acesso
+
+O app possui dois perfis com telas e funcionalidades distintas:
+
+**Coordenador:**
+- Visualizar agenda da equipe
+- Agendar visitas
+- Gerenciar equipe (cadastro e revisão de profissionais)
+- Acessar famílias e históricos
+- Visualizar perfil
+
+**Técnico:**
+- Visualizar própria agenda
+- Registrar visitas em campo
+- Acessar famílias e históricos
+- Visualizar perfil
+
+### Fluxos Principais
+
+```
+Abertura → Login ─┬─→ Coordenador ─┬─→ Agendar visita
+                  │                ├─→ Agenda da equipe
+                  │                ├─→ Equipe → Novo profissional → Revisar dados
+                  │                ├─→ Famílias → Detalhes da família
+                  │                └─→ Perfil
+                  │
+                  └─→ Técnico ─────┬─→ Agenda → Detalhe da visita → Informações da visita
+                                   ├─→ Observações → Encaminhamentos → Resultado da visita
+                                   ├─→ Histórico de visitas
+                                   └─→ Famílias → Detalhes da família
+
+Login → Recuperar senha → E-mail enviado → Nova senha → Senha alterada
 ```
 
-Contas de demonstração (login simulado, sem backend):
+### Funcionalidades
 
-| Perfil | E-mail | Senha |
-|---|---|---|
-| Coordenador | `coordenador@visita.com` | `123456` |
-| Técnico | `tecnico@visita.com` | `123456` |
+- Agendamento de visitas com validação de horário, local e tipo
+- Registro guiado da visita: observações, condições do domicílio, participação da família e materiais entregues
+- Encaminhamentos com tipo, motivo, prioridade, responsável e data sugerida
+- Gestão de famílias com busca, detalhes e histórico de visitas com filtros
+- Gestão da equipe com cadastro e revisão de profissionais
+- Recuperação de senha com fluxo completo
+- Multiplataforma: Android, iOS, Web, Windows, macOS e Linux
+
+---
+
+## Sincronização Offline
+
+O sistema foi projetado para operação em campo onde a conectividade pode ser limitada ou inexistente. O fluxo de sincronização funciona da seguinte forma:
+
+1. O técnico realiza visitas e registra dados normalmente, mesmo sem internet
+2. Os dados são armazenados localmente no dispositivo
+3. Quando a conexão é restabelecida, o app sincroniza automaticamente com o backend
+4. O backend valida as regras de negócio e persiste os dados no PostgreSQL
+5. Toda ação é auditada para garantir rastreabilidade
+
+---
+
+## Como Clonar
+
+Para clonar este repositório junto com os submódulos:
+
+```bash
+git clone --recurse-submodules https://github.com/Caio13Vinni/visitaPLUS.git
+cd visitaPLUS
+```
+
+Se você já clonou sem o flag `--recurse-submodules`:
+
+```bash
+git submodule update --init --recursive
+```
+
+---
+
+## Como Executar
 
 ### Backend
 
-**Pré-requisitos:** Rust estável e Docker + Docker Compose.
+Pré-requisitos: Rust estável e Docker + Docker Compose.
 
 ```bash
-git clone https://github.com/Caio13Vinni/visita-plus-backend.git
-cd visita-plus-backend
-
-cp .env.example .env   # ajuste as credenciais se necessário
+cd backend
+cp .env.example .env
 docker compose up -d --build
 ```
 
-Para desenvolver sem conteinerizar a API:
+Para desenvolvimento local sem conteinerizar a API:
 
 ```bash
 docker compose up -d postgres sqlite
 cargo run
 ```
 
-O contrato completo da API (endpoints, payloads, enums e erros) está no [`API.md`](https://github.com/Caio13Vinni/visita-plus-backend/blob/main/API.md) do backend. As respostas seguem um formato padronizado:
+### Frontend
 
-```json
-{
-  "sucesso": true,
-  "dados": { ... },
-  "erro": null
-}
+Pré-requisitos: Flutter estável.
+
+```bash
+cd frontend
+flutter pub get
+flutter run
 ```
 
-## Contribuindo
+Comandos úteis:
 
-Contribuições são bem-vindas: código, interface, documentação, revisão de regras de negócio.
+```bash
+flutter run -d chrome        # Web
+flutter run -d windows       # Windows
+flutter build apk --release  # Android
+flutter analyze              # Análise estática
+```
 
-1. Faça um fork e crie uma branch `feature/nome-da-mudanca`
-2. Implemente a mudança (no app, mantenha o padrão `tela_*.dart`)
-3. Rode `flutter analyze` (app) ou `cargo test` (backend)
-4. Abra um Pull Request descrevendo o que mudou, com capturas de tela se mexer na interface
+---
 
-## Licença
+## Contas de Demonstração
 
-- **Backend:** [MIT](https://github.com/Caio13Vinni/visita-plus-backend/blob/main/LICENSE) © Caio Vinícius e contribuidores.
-- **App:** a definir. Enquanto não houver um arquivo `LICENSE` neste repositório, todos os direitos permanecem com o autor.
+Login simulado no frontend, sem necessidade de backend:
 
-© Davi Quirino Rocha, Caio Vinícius e contribuidores do VISITA+.
+| Perfil      | E-mail                  | Senha    |
+|-------------|-------------------------|----------|
+| Coordenador | coordenador@visita.com  | 123456   |
+| Técnico     | tecnico@visita.com      | 123456   |
+
+---
+
+---
+
+## Autores
+
+- Caio Vinícius
+- Davi Quirino Rocha
